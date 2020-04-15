@@ -18,6 +18,9 @@ from math import log2, pow
 # 12 semitones per Octave with 100 cents each
 
 A4 = 440 # This will act as our reference note
+C0 = A4 * pow(2, -4.75) # C0 is 4.75 octaves lower than A4
+
+name = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 # A3 = 220 # Test Var
 
@@ -106,6 +109,15 @@ def calculate_MIDI_value(fn):
 def frequency_from_MIDI(m):
     return pow(2,(m-69)/12) * A4
 
+# TODO
+def closest_note_to_frequency(f):
+    h = round(12 * log2(f / C0)) # number of half steps from C0
+    octave = h // 12
+    n = h % 12
+    fr = C0 * pow(2, h/12) # Closest Note's Frequency    
+    remainder = round(cents_from_frequency(f,fr))
+    return name[n] + str(octave) + ', ' + str(remainder) + ' cents'
+
 ### Tests ###
 
 # print(octave_range(A3,A4))
@@ -119,3 +131,4 @@ def frequency_from_MIDI(m):
 # print(cents_from_frequency(A3,A4))
 # print(calculate_MIDI_value(A3))
 # print(frequency_from_MIDI(57))
+print(closest_note_to_frequency(A4))
