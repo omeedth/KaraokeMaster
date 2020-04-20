@@ -3,7 +3,7 @@ import simpleaudio as sa
 
 frequency = 440  # Our played note will be 440 Hz
 fs = 44100  # 44100 samples per second
-seconds = 3  # Note duration of 3 seconds
+seconds = 1  # Note duration of 3 seconds
 
 # Generate array with seconds*sample_rate steps, ranging between 0 and seconds
 t = np.linspace(0, seconds, seconds * fs, False)
