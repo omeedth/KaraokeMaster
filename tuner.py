@@ -201,14 +201,14 @@ stream = pyaudio.PyAudio().open(format=pyaudio.paInt16,
 stream.start_stream()
 
 # Setting up Plot
-plt.ion()
-fig, ax = plt.subplots()
+# plt.ion()
+# fig, ax = plt.subplots()
 
 # x = np.arange(0, CHUNK)
 # data = stream.read(CHUNK)
 # data_int16 = struct.unpack(str(CHUNK) + 'h', data)
 # line, = ax.plot(x, data_int16)
-line = ax.plot(np.arange(32769 // 2), np.arange(32769 // 2))
+# line = ax.plot(np.arange(32769 // 2), np.arange(32769 // 2))
 # # ax.set_xlim([xmin,xmax])
 # ax.set_ylim([-2**15,(2**15)-1])
 
@@ -221,6 +221,8 @@ print()
 
 # As long as we are getting data:
 while stream.is_active():
+
+    # Uncertainty Principle - must have longer range of time to understand a frequency
 
     # Shift the buffer down and new data in
     buf[:-CHUNK] = buf[CHUNK:]
