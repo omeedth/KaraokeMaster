@@ -226,6 +226,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import struct # https://docs.python.org/2/library/struct.html
 
+##########################################
+# For Keyboard Shortcuts
+import keyboard
+##########################################
+
 # Get min/max index within FFT of notes we care about.
 # See docs for numpy.rfftfreq()
 def note_to_fftbin(n): return frequency_from_MIDI(n)/FREQ_STEP
@@ -258,11 +263,22 @@ window = 0.5 - (0.5 * np.cos(np.linspace(0, 2*np.pi, SAMPLES_PER_FFT, False)))
 # Print initial text
 print('sampling at', SAMPLE_RATE, 'Hz with max resolution of', FREQ_STEP, 'Hz')
 
+freq = A4
+n = calculate_MIDI_value(A4)
+n0 = int(round(n))
+
+print("Press Enter to continue or press Esc to exit: ")
+
 # As long as we are getting data:
 while stream.is_active():
 
     # Uncertainty Principle - must have longer range of time to understand a frequency
     
+    if keyboard.is_pressed('Esc'):
+        print("you pressed Escape, so exiting...")
+        stream.close()
+        break
+
     block = stream.read(CHUNK)
     amplitude = get_rms(block)
 
@@ -283,8 +299,8 @@ while stream.is_active():
         n = calculate_MIDI_value(freq)
         n0 = int(round(n))
 
-        # Console output once we have a full buffer
-        num_frames += 1
+    # Console output once we have a full buffer
+    num_frames += 1
 
     if num_frames >= FRAMES_PER_FFT:
         pass    
