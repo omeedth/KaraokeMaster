@@ -1,7 +1,8 @@
-from math import log2, pow
+from math import log2, pow, sqrt
 
 ######################################################################
 # https://newt.phys.unsw.edu.au/jw/notes.html - Citation
+# https://github.com/mzucker/python-tuner/blob/master/tuner.py - Citation
 
 # n_0  =  log_2(f2/f1) - (Octave)
 # f_n  =  2^n/12 * 440 Hz - (Frequency from A4)
@@ -28,6 +29,11 @@ NOTE_MAX = 127      # G_9 - 127
 SAMPLE_RATE = 22050 # Sampling rate in Herz (Standard - 44100)
 CHUNK = 1024 * 2    # Samples per frame
 FRAMES_PER_FFT = 16 # ???
+
+SHORT_NORMALIZE = (1.0/32768.0)
+
+# Sound Threshold
+THRESHOLD = .01
 
 ######################################################################
 
@@ -156,6 +162,45 @@ def closest_note_to_frequency(f):
     return fr,cents
 
 ######################################################################
+# Utility Tuner Functions
+
+# https://stackoverflow.com/questions/4160175/detect-tap-with-pyaudio-from-live-mic - Citation
+''' Returns the amplitude of the block of read mic data (Volume Level)
+    Input: string (Stream Data)
+    Output: 0 - 1 (Amplitude)
+'''
+def get_rms(block):
+
+    # RMS amplitude is defined as the square root of the 
+    # mean over time of the square of the amplitude.
+    # so we need to convert this string of bytes into 
+    # a string of 16-bit samples...
+
+    # we will get one short out for each 
+    # two chars in the string.
+    count = len(block)/2
+    format = "%dh"%(count)
+    shorts = struct.unpack( format, block )
+
+    # iterate over the block.
+    sum_squares = 0.0
+    for sample in shorts:
+    # sample is a signed short in +/- 32768. 
+    # normalize it to 1.0
+        n = sample * SHORT_NORMALIZE
+        sum_squares += n*n
+
+    return sqrt( sum_squares / count )
+
+def set_threshold(threshold):
+    if 1 < threshold < 0: print('Threshold must be between 0 and 1!')
+    else: THRESHOLD = threshold
+
+def set_samplerate(samplerate):
+    if samplerate in {11025,22050,44100}: SAMPLE_RATE = samplerate
+    else: print('Unsupported Sample Rate! Supports: 11025,22050,44100')
+
+######################################################################
 # Testing Functions
 
 # print(octave_range(A3,A4))
@@ -184,6 +229,7 @@ import struct # https://docs.python.org/2/library/struct.html
 # Get min/max index within FFT of notes we care about.
 # See docs for numpy.rfftfreq()
 def note_to_fftbin(n): return frequency_from_MIDI(n)/FREQ_STEP
+
 imin = max(0, int(np.floor(note_to_fftbin(NOTE_MIN-1))))
 imax = min(SAMPLES_PER_FFT, int(np.ceil(note_to_fftbin(NOTE_MAX+1))))
 
@@ -200,49 +246,56 @@ stream = pyaudio.PyAudio().open(format=pyaudio.paInt16,
 
 stream.start_stream()
 
+##########################################
 # Setting up Plot
 # plt.ion()
-# fig, ax = plt.subplots()
-
-# x = np.arange(0, CHUNK)
-# data = stream.read(CHUNK)
-# data_int16 = struct.unpack(str(CHUNK) + 'h', data)
-# line, = ax.plot(x, data_int16)
-# line = ax.plot(np.arange(32769 // 2), np.arange(32769 // 2))
-# # ax.set_xlim([xmin,xmax])
-# ax.set_ylim([-2**15,(2**15)-1])
+##########################################
 
 # Create Hanning window function
-window = 0.5 * (1 - np.cos(np.linspace(0, 2*np.pi, SAMPLES_PER_FFT, False)))
+# window = 0.5 * (1 - np.cos(np.linspace(0, 2*np.pi, SAMPLES_PER_FFT, False))) # - Had Before
+window = 0.5 - (0.5 * np.cos(np.linspace(0, 2*np.pi, SAMPLES_PER_FFT, False)))
 
 # Print initial text
 print('sampling at', SAMPLE_RATE, 'Hz with max resolution of', FREQ_STEP, 'Hz')
-print()
 
 # As long as we are getting data:
 while stream.is_active():
 
     # Uncertainty Principle - must have longer range of time to understand a frequency
+    
+    block = stream.read(CHUNK)
+    amplitude = get_rms(block)
 
-    # Shift the buffer down and new data in
-    buf[:-CHUNK] = buf[CHUNK:]
-    buf[-CHUNK:] = np.frombuffer(stream.read(CHUNK), np.int16)
+    if amplitude > THRESHOLD:
 
-    # Run the FFT on the windowed buffer
-    fft = np.fft.rfft(buf * window)
+        # Shift the buffer down and new data in
+        buf[:-CHUNK] = buf[CHUNK:]
+        buf[-CHUNK:] = np.frombuffer(block, np.int16)
 
-    # Get frequency of maximum response in range
-    freq = (np.abs(fft[imin:imax]).argmax() + imin) * FREQ_STEP
+        # Run the FFT on the windowed buffer
+        fft = np.fft.rfft(buf * window)        
 
-    # Get note number and nearest note
-    # n = freq_to_number(freq)
-    n = calculate_MIDI_value(freq)
-    n0 = int(round(n))
+        # Get frequency of maximum response in range
+        freq = (np.abs(fft[imin:imax]).argmax() + imin) * FREQ_STEP
 
-    # Console output once we have a full buffer
-    num_frames += 1
+        # Get note number and nearest note
+        # n = freq_to_number(freq)
+        n = calculate_MIDI_value(freq)
+        n0 = int(round(n))
+
+        # Console output once we have a full buffer
+        num_frames += 1
 
     if num_frames >= FRAMES_PER_FFT:
-        # pass
+        pass    
+        ##########################################
+        # plt.clf()    
+        # plt.plot(buf)
+        # plt.title("Buffer")
+        # plt.draw()
+        # plt.pause(0.1)
+        ##########################################
         print('freq: {:7.2f} Hz     note: {:>3s} {} {:+.2f}'.format(
             freq, find_note_name(freq),find_octave(freq),n-n0))
+
+# plt.show(block=True)
